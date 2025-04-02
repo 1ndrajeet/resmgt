@@ -1,45 +1,52 @@
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { DatabaseError } from '@/lib/types';
+import { handleApiError } from '@/lib/error-handler';
 
 const prisma = new PrismaClient();
 
-export async function POST(req: Request) {
- 
-  const { department, semester, masterCode } = await req.json();
+export async function POST(request: Request) {
+  const { department, semester, masterCode } = await request.json();
   try {
     const newClass = await prisma.class.create({
       data: { department, semester, masterCode },
     });
     return NextResponse.json(newClass);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const dbError = error as DatabaseError;
+    return NextResponse.json(
+      { error: dbError.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
-export async function GET(req: Request) {
- 
+export async function GET() {
   try {
     const classes = await prisma.class.findMany();
     return NextResponse.json(classes);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
- 
-  const { department, semester, masterCode } = await req.json();
+export async function PUT(req: Request) {
+  const { id, department, semester, masterCode } = await req.json();
   try {
     const updatedClass = await prisma.class.update({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       data: { department, semester, masterCode },
     });
     return NextResponse.json(updatedClass);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const dbError = error as DatabaseError;
+    return NextResponse.json(
+      { error: dbError.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
+
 export async function DELETE(req: Request) {
  
   try {
@@ -65,7 +72,11 @@ export async function DELETE(req: Request) {
     });
 
     return NextResponse.json({ message: 'Class deleted successfully' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const dbError = error as DatabaseError;
+    return NextResponse.json(
+      { error: dbError.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

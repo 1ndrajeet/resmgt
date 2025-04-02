@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { PrismaError } from '@/lib/types';
 
 const prisma = new PrismaClient();
 
@@ -17,8 +17,12 @@ export async function GET(req: Request) {
       include: { class: true }, // Include class details
     });
     return NextResponse.json(students);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const prismaError = error as PrismaError;
+    return NextResponse.json(
+      { error: prismaError.message || 'Internal server error' },
+      { status: 500 }
+    );
   } finally {
     await prisma.$disconnect(); // Ensure Prisma disconnects to avoid connection leaks
   }
@@ -58,8 +62,12 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json(newStudent);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const prismaError = error as PrismaError;
+        return NextResponse.json(
+            { error: prismaError.message || 'Internal server error' },
+            { status: 500 }
+        );
     }
 }
 
@@ -90,8 +98,12 @@ export async function PUT(req: Request) {
         });
 
         return NextResponse.json(updatedStudent);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const prismaError = error as PrismaError;
+        return NextResponse.json(
+            { error: prismaError.message || 'Internal server error' },
+            { status: 500 }
+        );
     }
 }
 
@@ -116,7 +128,11 @@ export async function DELETE(req: Request) {
         });
 
         return NextResponse.json({ message: 'Student deleted successfully' });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const prismaError = error as PrismaError;
+        return NextResponse.json(
+            { error: prismaError.message || 'Internal server error' },
+            { status: 500 }
+        );
     }
 }

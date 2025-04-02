@@ -2,7 +2,7 @@
 import { useAuth, SignInButton } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, BookOpen, Shield, BarChart, Users, Zap, Clock, Check, Globe, Cloud, Lock, FileText } from 'lucide-react';
+import { ArrowRight, BookOpen, Shield, BarChart, Users, Zap, Clock, Check, Globe, Lock, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -245,7 +245,7 @@ export default function LandingPage() {
               <Card className="bg-blue-800 border-none">
                 <CardContent className="pt-6">
                   <p className="text-gray-200 italic">
-                    "TestForge has transformed our exam process, saving us countless hours."
+                    &ldquo;TestForge has transformed our exam process, saving us countless hours.&rdquo;
                   </p>
                   <p className="mt-4 text-blue-300 font-medium">- Exam Center Manager</p>
                 </CardContent>
@@ -255,7 +255,7 @@ export default function LandingPage() {
               <Card className="bg-blue-800 border-none">
                 <CardContent className="pt-6">
                   <p className="text-gray-200 italic">
-                    "The automation and reporting features are a game-changer for us."
+                    &ldquo;The automation and reporting features are a game-changer for us.&rdquo;
                   </p>
                   <p className="mt-4 text-blue-300 font-medium">- Institution Administrator</p>
                 </CardContent>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,6 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ApiError, FetchError } from '@/lib/types';
 
 interface Subject {
   id: number;
@@ -60,7 +62,7 @@ export default function SubjectsPage() {
   const [subjectToDelete, setSubjectToDelete] = useState<number | null>(null);
   const { getToken } = useAuth();
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     setIsLoading(true);
     const token = await getToken();
     if (!token) {
@@ -90,15 +92,16 @@ export default function SubjectsPage() {
 
       setSubjects(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error | ApiError | FetchError;
+      setError(error.message);
       setSubjects([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken]);
 
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     const token = await getToken();
     if (!token) return;
 
@@ -114,10 +117,11 @@ export default function SubjectsPage() {
       if (!res.ok) throw new Error('Failed to fetch classes');
       const data = await res.json();
       setClasses(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error | ApiError | FetchError;
+      setError(error.message);
     }
-  };
+  }, [getToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,8 +169,9 @@ export default function SubjectsPage() {
 
         // Refresh the list of subjects
         fetchSubjects();
-    } catch (err: any) {
-        setError(err.message);
+    } catch (err: unknown) {
+        const error = err as Error | ApiError | FetchError;
+        setError(error.message);
     } finally {
         setIsLoading(false);
     }
@@ -207,8 +212,9 @@ export default function SubjectsPage() {
       }
 
       fetchSubjects();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error | ApiError | FetchError;
+      setError(error.message);
     } finally {
       setIsLoading(false);
       setIsDeleteDialogOpen(false);
@@ -218,11 +224,24 @@ export default function SubjectsPage() {
   useEffect(() => {
     fetchClasses();
     fetchSubjects();
-  }, []);
+  }, [fetchClasses, fetchSubjects]);
 
-  const handleAddAssessment = (value: string) => {
-    if (value && !assessments.includes(value)) {
-      setAssessments([...assessments, value]);
+  const handleAssessmentToggle = (assessment: string) => {
+    if (assessments.includes(assessment)) {
+      setAssessments(assessments.filter(a => a !== assessment));
+    } else {
+      setAssessments(prev => {
+        // Create a new array with the assessment added
+        const newAssessments = [...prev, assessment];
+        
+        // Define the order of assessments
+        const assessmentOrder = ['FA-TH', 'SA-TH', 'FA-PR', 'SA-PR', 'SLA'];
+        
+        // Sort the assessments according to the defined order
+        return newAssessments.sort((a, b) => {
+          return assessmentOrder.indexOf(a) - assessmentOrder.indexOf(b);
+        });
+      });
     }
   };
 
@@ -345,39 +364,50 @@ export default function SubjectsPage() {
               </Select>
             </div>
             <div>
-              <label htmlFor="assessments" className="block text-sm font-medium">
-                Assessments (select multiple)
+              <label className="block text-sm font-medium mb-2">
+                Assessments
               </label>
-              <Select
-                onValueChange={handleAddAssessment}
-                value="" // Reset after selection
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Add Assessment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FA-TH">FA-TH</SelectItem>
-                  <SelectItem value="SA-TH">SA-TH</SelectItem>
-                  <SelectItem value="FA-PR">FA-PR</SelectItem>
-                  <SelectItem value="SA-PR">SA-PR</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="mt-2">
-                {assessments.map((assess, index) => (
-                  <span
-                    key={index}
-                    className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm mr-2 mb-2"
-                  >
-                    {assess}
-                    <button
-                      type="button"
-                      onClick={() => setAssessments(assessments.filter((a) => a !== assess))}
-                      className="ml-2 text-red-500"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+              <div className="space-y-2 flex items-center justify-center gap-6">
+                <div className="flex items-center space-x-0.5">
+                  <Checkbox 
+                    id="FA-TH" 
+                    checked={assessments.includes('FA-TH')} 
+                    onCheckedChange={() => handleAssessmentToggle('FA-TH')}
+                  />
+                  <label htmlFor="FA-TH" className="text-sm">FA-TH</label>
+                </div>
+                <div className="flex items-center space-x-0.5">
+                  <Checkbox 
+                    id="SA-TH" 
+                    checked={assessments.includes('SA-TH')} 
+                    onCheckedChange={() => handleAssessmentToggle('SA-TH')}
+                  />
+                  <label htmlFor="SA-TH" className="text-sm">SA-TH</label>
+                </div>
+                <div className="flex items-center space-x-0.5">
+                  <Checkbox 
+                    id="FA-PR" 
+                    checked={assessments.includes('FA-PR')} 
+                    onCheckedChange={() => handleAssessmentToggle('FA-PR')}
+                  />
+                  <label htmlFor="FA-PR" className="text-sm">FA-PR</label>
+                </div>
+                <div className="flex items-center space-x-0.5">
+                  <Checkbox 
+                    id="SA-PR" 
+                    checked={assessments.includes('SA-PR')} 
+                    onCheckedChange={() => handleAssessmentToggle('SA-PR')}
+                  />
+                  <label htmlFor="SA-PR" className="text-sm">SA-PR</label>
+                </div>
+                <div className="flex items-center space-x-0.5">
+                  <Checkbox 
+                    id="SLA" 
+                    checked={assessments.includes('SLA')} 
+                    onCheckedChange={() => handleAssessmentToggle('SLA')}
+                  />
+                  <label htmlFor="SLA" className="text-sm">SLA</label>
+                </div>
               </div>
             </div>
             <Button type="submit" disabled={isLoading}>

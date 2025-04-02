@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,6 +40,28 @@ interface Subject {
   assessments: string[];
 }
 
+interface SubjectData {
+  id: number;
+  subjectCode: string;
+  name: string;
+  abbreviation: string;
+  assessments: string[];
+}
+
+interface MarksResponse {
+  subjects: SubjectData[];
+  marks: { [studentId: string]: { [key: string]: number } };
+}
+
+// Assessment max marks mapping
+const ASSESSMENT_MAX_MARKS: Record<string, number> = {
+  'FA-TH': 30,
+  'SA-TH': 70,
+  'FA-PR': 50,
+  'SA-PR': 50,
+  'SLA': 50
+};
+
 export default function MarksPage() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -51,8 +73,7 @@ export default function MarksPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { getToken } = useAuth();
 
-  // Fetch all classes
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     setIsLoading(true);
     const token = await getToken();
     if (!token) {
@@ -74,16 +95,16 @@ export default function MarksPage() {
       const data = await res.json();
       setClasses(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(error);
       setClasses([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken]);
 
-  // Fetch students and marks for the selected class
-  const fetchClassData = async (classId: string) => {
+  const fetchClassData = useCallback(async () => {
     setIsLoading(true);
     const token = await getToken();
     if (!token) {
@@ -94,7 +115,7 @@ export default function MarksPage() {
 
     try {
       // Fetch students
-      const studentsRes = await fetch(`/api/students?classId=${classId}`, {
+      const studentsRes = await fetch(`/api/students?classId=${selectedClassId}`, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (!studentsRes.ok) throw new Error('Failed to fetch students');
@@ -103,13 +124,13 @@ export default function MarksPage() {
       setCurrentStudentIndex(0);
 
       // Fetch subjects and marks for the class
-      const marksRes = await fetch(`/api/marks?classId=${classId}`, {
+      const marksRes = await fetch(`/api/marks?classId=${selectedClassId}`, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (!marksRes.ok) throw new Error('Failed to fetch marks data');
-      const { subjects, marks } = await marksRes.json();
+      const { subjects, marks } = await marksRes.json() as MarksResponse;
 
-      const parsedSubjects = subjects.map((subject: any) => ({
+      const parsedSubjects = subjects.map((subject: SubjectData) => ({
         ...subject,
         assessments: Array.isArray(subject.assessments) ? subject.assessments : [],
       }));
@@ -119,15 +140,26 @@ export default function MarksPage() {
       setAllMarks(marks || {});
 
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(error);
       setStudents([]);
       setSubjects([]);
       setAllMarks({});
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken, selectedClassId]);
+
+  useEffect(() => {
+    fetchClasses();
+  }, [fetchClasses]);
+
+  useEffect(() => {
+    if (selectedClassId) {
+      fetchClassData();
+    }
+  }, [selectedClassId, fetchClassData]);
 
   // Save marks for the current student
   const handleSaveMarks = async () => {
@@ -169,8 +201,9 @@ export default function MarksPage() {
       setError(null);
       alert(`Marks saved successfully for ${currentStudent.name}`);
       handleNext();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(error);
     } finally {
       setIsLoading(false);
     }
@@ -188,18 +221,18 @@ export default function MarksPage() {
     }
   };
 
-  useEffect(() => {
-    fetchClasses();
-  }, []);
-
-  useEffect(() => {
-    if (selectedClassId) {
-      fetchClassData(selectedClassId);
-    }
-  }, [selectedClassId]);
-
   const currentStudent = students[currentStudentIndex];
   const currentMarks = currentStudent ? allMarks[currentStudent.id.toString()] || {} : {};
+
+  // Function to validate mark input based on assessment type
+  const validateMarkInput = (value: string, assessment: string) => {
+    const numValue = value === '' ? 0 : parseInt(value);
+    const maxMark = ASSESSMENT_MAX_MARKS[assessment] || 100;
+    
+    if (numValue < 0) return 0;
+    if (numValue > maxMark) return maxMark;
+    return numValue;
+  };
 
   return (
     <div className="p-6">
@@ -257,7 +290,9 @@ export default function MarksPage() {
                       <TableRow>
                         <TableHead className="w-1/4">Subject</TableHead>
                         {subjects.length > 0 && subjects[0].assessments.map((assessment) => (
-                          <TableHead key={assessment} className="text-center">{assessment}</TableHead>
+                          <TableHead key={assessment} className="text-center">
+                            {assessment} (Max: {ASSESSMENT_MAX_MARKS[assessment] || 100})
+                          </TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>
@@ -271,15 +306,17 @@ export default function MarksPage() {
                                 type="number"
                                 value={currentMarks[`${subject.abbreviation}_${assessment}`] || ''}
                                 onChange={(e) => {
-                                  const value = e.target.value ? parseInt(e.target.value) : 0;
+                                  const validatedValue = validateMarkInput(e.target.value, assessment);
                                   setAllMarks({
                                     ...allMarks,
                                     [currentStudent.id.toString()]: {
                                       ...currentMarks,
-                                      [`${subject.abbreviation}_${assessment}`]: value,
+                                      [`${subject.abbreviation}_${assessment}`]: validatedValue,
                                     },
                                   });
                                 }}
+                                min={0}
+                                max={ASSESSMENT_MAX_MARKS[assessment] || 70}
                                 className="w-20 mx-auto"
                                 placeholder="0"
                               />

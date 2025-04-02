@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
+import { RowDataPacket } from 'mysql2';
 
 const prisma = new PrismaClient();
 
 async function getMarksTableName(classId: number): Promise<string> {
-  const [classData] = await query(
+  const result = await query(
     'SELECT department, semester, masterCode FROM class WHERE id = ?',
     [classId]
-  );
+  ) as RowDataPacket[];
+  
+  const classData = result[0] as RowDataPacket;
   if (!classData) throw new Error('Class not found');
   return `marks_${classData.department.toLowerCase()}_${classData.semester.toLowerCase()}_${classData.masterCode.toLowerCase()}`.replace(/-/g, '_');
 }
@@ -36,11 +38,11 @@ export async function GET(req: Request) {
       code: subject.subjectCode,
       name: subject.name,
       abbr: subject.abbreviation,
-      assessments: Array.isArray(subject.assessments) ? subject.assessments : JSON.parse(subject.assessments || '[]'),
+      assessments: Array.isArray(subject.assessments) ? subject.assessments : JSON.parse(subject.assessments as string || '[]'),
     }));
 
     const marksTableName = await getMarksTableName(parseInt(classId));
-    const marks = await query(`SELECT * FROM ${marksTableName}`);
+    const marksResult = await query(`SELECT * FROM ${marksTableName}`) as RowDataPacket[];
 
     const report = {
       class: {
@@ -52,11 +54,11 @@ export async function GET(req: Request) {
       },
       subjects: subjects,
       students: classData.students.map((student) => {
-        const studentMarks = marks.find((m: any) => m.enrollmentNumber === student.enrollmentNumber) || {};
+        const studentMarks = marksResult.find((m) => m.enrollmentNumber === student.enrollmentNumber) || {};
         const formattedMarks = subjects.reduce((acc, subject) => {
-          acc[subject.abbr] = subject.assessments.reduce((markAcc, assessment) => {
+          acc[subject.abbr] = subject.assessments.reduce((markAcc: { [key: string]: number | null }, assessment: string) => {
             const columnName = `${subject.abbr}_${assessment.replace(/-/g, '_')}`;
-            markAcc[assessment] = studentMarks[columnName] || null;
+            markAcc[assessment] = studentMarks[columnName as keyof typeof studentMarks] as number | null || null;
             return markAcc;
           }, {} as { [key: string]: number | null });
           return acc;
@@ -73,8 +75,8 @@ export async function GET(req: Request) {
     };
 
     return NextResponse.json(report);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

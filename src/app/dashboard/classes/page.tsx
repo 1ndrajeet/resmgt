@@ -1,7 +1,6 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@clerk/nextjs';
 import {
@@ -32,6 +31,11 @@ interface Class {
   department: string;
   semester: string;
   masterCode: string;
+}
+
+interface ApiError {
+  message: string;
+  status?: number;
 }
 
 export default function ClassesPage() {
@@ -66,7 +70,7 @@ export default function ClassesPage() {
 
   const masterCodes = ['K', 'I'];
 
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     setIsLoading(true);
     const token = await getToken();
     if (!token) {
@@ -96,13 +100,14 @@ export default function ClassesPage() {
 
       setClasses(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      setError(apiError.message || 'An error occurred');
       setClasses([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,8 +142,9 @@ export default function ClassesPage() {
       setCurrentClass(null);
       setIsDialogOpen(false);
       fetchClasses();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -178,8 +184,9 @@ export default function ClassesPage() {
 
       // Refresh the list of classes after successful deletion
       fetchClasses();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setIsLoading(false);
       setIsDeleteDialogOpen(false);
@@ -188,7 +195,7 @@ export default function ClassesPage() {
 
   useEffect(() => {
     fetchClasses();
-  }, []);
+  }, [fetchClasses]);
 
   return (
     <div className="p-6">

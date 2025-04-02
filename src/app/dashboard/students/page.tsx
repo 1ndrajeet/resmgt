@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,7 +58,7 @@ export default function StudentsPage() {
   const [studentToDelete, setStudentToDelete] = useState<number | null>(null);
   const { getToken } = useAuth();
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setIsLoading(true);
     const token = await getToken();
     if (!token) {
@@ -88,15 +88,16 @@ export default function StudentsPage() {
 
       setStudents(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
       setStudents([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken]);
 
-  const fetchClasses = async () => {
+  const fetchClasses = useCallback(async () => {
     const token = await getToken();
     if (!token) return;
 
@@ -112,10 +113,11 @@ export default function StudentsPage() {
       if (!res.ok) throw new Error('Failed to fetch classes');
       const data = await res.json();
       setClasses(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     }
-  };
+  }, [getToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,8 +157,9 @@ export default function StudentsPage() {
       setCurrentStudent(null);
       setIsDialogOpen(false);
       fetchStudents();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -196,8 +199,9 @@ export default function StudentsPage() {
       }
 
       fetchStudents();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setIsLoading(false);
       setIsDeleteDialogOpen(false);
@@ -207,7 +211,7 @@ export default function StudentsPage() {
   useEffect(() => {
     fetchClasses();
     fetchStudents();
-  }, []);
+  }, [fetchClasses, fetchStudents]);
 
   return (
     <div className="p-6">

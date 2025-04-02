@@ -1,21 +1,12 @@
 "use client";
 import { Sidebar } from '@/components/Sidebar';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { SignOutButton, UserButton } from '@clerk/nextjs';
+import { UserButton } from '@clerk/nextjs';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/login');
-  };
-
   return (
     <div className="flex">
       <Sidebar />

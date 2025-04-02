@@ -3,8 +3,6 @@ import { NextResponse } from 'next/server';
 
 import { pool } from '@/lib/db';
 
-import { auth } from '@clerk/nextjs/server';
-
 const prisma = new PrismaClient();
 
 async function getClassTableName(classId: number): Promise<string> {
@@ -22,7 +20,7 @@ async function createOrUpdateMarksTable(classId: number, subjectCode: string, as
         const [tableExists] = await pool.query(`SHOW TABLES LIKE ?`, [tableName]);
         console.log('Table Exists:', tableExists); // Debugging
 
-        if ((tableExists as any[]).length === 0) {
+        if ((tableExists as Array<Record<string, unknown>>).length === 0) {
             await pool.query(`
                 CREATE TABLE ${tableName} (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,7 +33,7 @@ async function createOrUpdateMarksTable(classId: number, subjectCode: string, as
         }
 
         const [columns] = await pool.query(`SHOW COLUMNS FROM ${tableName}`);
-        const existingColumns = (columns as any[]).map(col => col.Field);
+        const existingColumns = (columns as Array<{ Field: string }>).map(col => col.Field);
         console.log('Existing Columns:', existingColumns);
 
         for (const assessment of assessments) {
@@ -57,7 +55,7 @@ async function removeSubjectColumns(classId: number, subjectCode: string, assess
         console.log('Generated Table Name:', tableName);
 
         const [columns] = await pool.query(`SHOW COLUMNS FROM ${tableName}`);
-        const existingColumns = (columns as any[]).map(col => col.Field);
+        const existingColumns = (columns as Array<{ Field: string }>).map(col => col.Field);
         console.log('Existing Columns:', existingColumns);
 
         for (const assessment of assessments) {
@@ -106,14 +104,15 @@ export async function POST(req: Request) {
         await createOrUpdateMarksTable(parseInt(classId), abbreviation, JSON.parse(assessments));
 
         return NextResponse.json(newSubject);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error in POST /api/subjects:', error); // Debugging
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
 
-export async function GET(req: Request) {
+export async function GET() {
     
 
     try {
@@ -121,8 +120,9 @@ export async function GET(req: Request) {
             include: { class: true },
         });
         return NextResponse.json(subjects);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
@@ -160,8 +160,9 @@ export async function PUT(req: Request) {
         await createOrUpdateMarksTable(parseInt(classId), abbreviation, newAssessments);
 
         return NextResponse.json(updatedSubject);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
 
@@ -191,7 +192,8 @@ export async function DELETE(req: Request) {
         });
 
         return NextResponse.json({ message: 'Subject deleted successfully' });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
